@@ -131,11 +131,6 @@ export default function PiMemoryApp() {
       {screen === 'home' && (
         <div className="menu-screen">
           <h1 className="title">PiMemory</h1>
-          {username ? (
-            <p className="greeting">Hello, {username}!</p>
-          ) : (
-            <button className="menu-button" onClick={initPi}>🔐 Log in with Pi</button>
-          )}
           <h2 className="subtitle">Choose a level</h2>
           <div className="level-buttons">
             {[2, 4, 6, 8].map((size, index) => (

@@ -1,70 +1,41 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
-export default function PiMemoryApp() {
-  const [username, setUsername] = useState('Pioneer');
-  const [screen, setScreen] = useState('home');
-  const [cards, setCards] = useState([]);
-  const [flipped, setFlipped] = useState([]);
-  const [matched, setMatched] = useState([]);
-  const [score, setScore] = useState(0);
-  const [level, setLevel] = useState(null);
+export default function HomePage() {
+  const [username, setUsername] = useState(null);
 
-  useEffect(() => {
-    setUsername('Pioneer');
-  }, []);
-
-  const startGame = (size) => {
-    let numCards = size * size;
-    if (numCards % 2 !== 0) numCards -= 1; // ensure even number of cards
-    const numPairs = numCards / 2;
-    const allEmojis = ['🍕', '🎈', '🐱', '🚀', '🎮', '🌈', '🎵', '⚽', '🍓', '🐶', '🌟', '🎁', '🧠', '🧸', '🍩', '🍄', '🦋', '📦', '🧃', '🪐', '🐸', '🍪'];
-    const selected = allEmojis.slice(0, numPairs);
-    const shuffled = [...selected, ...selected]
-      .sort(() => 0.5 - Math.random())
-      .map((type, index) => ({ id: index, type }));
-
-    setCards(shuffled);
-    setFlipped([]);
-    setMatched([]);
-    setScore(0);
-    setLevel(size);
-    setScreen('game');
-  };
-
-  const handleFlip = (index) => {
-    if (flipped.length === 2 || flipped.includes(index) || matched.includes(index)) return;
-
-    const newFlipped = [...flipped, index];
-    setFlipped(newFlipped);
-
-    if (newFlipped.length === 2) {
-      const [first, second] = newFlipped;
-      if (cards[first].type === cards[second].type) {
-        setMatched([...matched, first, second]);
-        setScore(score + 10);
-      }
-      setTimeout(() => setFlipped([]), 800);
+  const initPi = async () => {
+    if (typeof window === 'undefined' || !window.Pi) {
+      console.warn('Pi SDK not available');
+      return;
     }
-  };
-
-  const getGridStyle = () => {
-    return {
-      gridTemplateColumns: `repeat(${level}, 1fr)`
-    };
+    try {
+      await window.Pi.init({ version: '2.0' });
+      const result = await window.Pi.authenticate(['username'], (payment) => {
+        console.log('Incomplete payment:', payment);
+      });
+      setUsername(result.user.username);
+    } catch (err) {
+      console.error('Pi login failed:', err);
+    }
   };
 
   return (
     <main className="app-container">
-      
-        <div className="menu-screen">
-          <h1 className="title">PiMemory</h1>
+      <div className="menu-screen">
+        <h1 className="title">Welcome to PiMemory</h1>
+        {username ? (
           <p className="greeting">Hello, {username}!</p>
-          <h2 className="subtitle">Choose a game!</h2>
-        </div>
+        ) : (
+          <button className="menu-button" onClick={initPi}>
+            🔐 Log in with Pi
+          </button>
+        )}
 
+        <h2 className="subtitle">Choose a game</h2>
         <div className="game-selector">
-          <a href='/cards'>PiCards</a>
+          <a className="menu-button" href="/cards">Play PiCards</a>
         </div>
+      </div>
     </main>
   );
 }
