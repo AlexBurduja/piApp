@@ -1,71 +1,70 @@
-import { useCallback, useEffect, useState } from 'react'
-import Button from '../components/Button'
-import ClickCount from '../components/ClickCount'
-import styles from '../styles/home.module.css'
+import { useState, useEffect } from 'react';
 
-function throwError() {
-  console.log(
-    // The function body() is not defined
-    document.body()
-  )
-}
-
-function Home() {
-  const [count, setCount] = useState(0)
-  const increment = useCallback(() => {
-    setCount((v) => v + 1)
-  }, [setCount])
+export default function PiMemoryApp() {
+  const [username, setUsername] = useState('Pioneer');
+  const [screen, setScreen] = useState('home');
+  const [cards, setCards] = useState([]);
+  const [flipped, setFlipped] = useState([]);
+  const [matched, setMatched] = useState([]);
+  const [score, setScore] = useState(0);
+  const [level, setLevel] = useState(null);
 
   useEffect(() => {
-    const r = setInterval(() => {
-      increment()
-    }, 1000)
+    setUsername('Pioneer');
+  }, []);
 
-    return () => {
-      clearInterval(r)
+  const startGame = (size) => {
+    let numCards = size * size;
+    if (numCards % 2 !== 0) numCards -= 1; // ensure even number of cards
+    const numPairs = numCards / 2;
+    const allEmojis = ['🍕', '🎈', '🐱', '🚀', '🎮', '🌈', '🎵', '⚽', '🍓', '🐶', '🌟', '🎁', '🧠', '🧸', '🍩', '🍄', '🦋', '📦', '🧃', '🪐', '🐸', '🍪'];
+    const selected = allEmojis.slice(0, numPairs);
+    const shuffled = [...selected, ...selected]
+      .sort(() => 0.5 - Math.random())
+      .map((type, index) => ({ id: index, type }));
+
+    setCards(shuffled);
+    setFlipped([]);
+    setMatched([]);
+    setScore(0);
+    setLevel(size);
+    setScreen('game');
+  };
+
+  const handleFlip = (index) => {
+    if (flipped.length === 2 || flipped.includes(index) || matched.includes(index)) return;
+
+    const newFlipped = [...flipped, index];
+    setFlipped(newFlipped);
+
+    if (newFlipped.length === 2) {
+      const [first, second] = newFlipped;
+      if (cards[first].type === cards[second].type) {
+        setMatched([...matched, first, second]);
+        setScore(score + 10);
+      }
+      setTimeout(() => setFlipped([]), 800);
     }
-  }, [increment])
+  };
+
+  const getGridStyle = () => {
+    return {
+      gridTemplateColumns: `repeat(${level}, 1fr)`
+    };
+  };
 
   return (
-    <main className={styles.main}>
-      <h1>Fast Refresh Demo</h1>
-      <p>
-        Fast Refresh is a Next.js feature that gives you instantaneous feedback
-        on edits made to your React components, without ever losing component
-        state.
-      </p>
-      <hr className={styles.hr} />
-      <div>
-        <p>
-          Auto incrementing value. The counter won't reset after edits or if
-          there are errors.
-        </p>
-        <p>Current value: {count}</p>
-      </div>
-      <hr className={styles.hr} />
-      <div>
-        <p>Component with state.</p>
-        <ClickCount />
-      </div>
-      <hr className={styles.hr} />
-      <div>
-        <p>
-          The button below will throw 2 errors. You'll see the error overlay to
-          let you know about the errors but it won't break the page or reset
-          your state.
-        </p>
-        <Button
-          onClick={(e) => {
-            setTimeout(() => document.parentNode(), 0)
-            throwError()
-          }}
-        >
-          Throw an Error
-        </Button>
-      </div>
-      <hr className={styles.hr} />
-    </main>
-  )
-}
+    <main className="app-container">
+      
+        <div className="menu-screen">
+          <h1 className="title">PiMemory</h1>
+          <p className="greeting">Hello, {username}!</p>
+          <h2 className="subtitle">Choose a game!</h2>
+        </div>
 
-export default Home
+        <div className="game-selector">
+          <a href='/cards'>PiCards</a>
+        </div>
+    </main>
+  );
+}
