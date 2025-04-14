@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 export default function HomePage() {
   const [username, setUsername] = useState(null);
   const [error, setError] = useState(null);
+  const [isPaid, setIsPaid] = useState(false); // ← to track payment state
 
   useEffect(() => {
     const authenticateUser = async () => {
@@ -12,7 +13,6 @@ export default function HomePage() {
           const authResult = await window.Pi.authenticate(scopes, (payment) => {
             console.log('Unfinished payment found:', payment);
           });
-
           console.log('✅ Authenticated as:', authResult.user.username);
           setUsername(authResult.user.username);
         } catch (err) {
@@ -25,37 +25,43 @@ export default function HomePage() {
     authenticateUser();
   }, []);
 
-  // 🔘 Payment handler
   const handlePayment = async () => {
-    if (!window.Pi) return;
+    if (!window.Pi) {
+      setError("Pi SDK not available");
+      return;
+    }
+
+    const paymentData = {
+      amount: 0.001,
+      memo: "PiMemory Test Access",
+      metadata: {
+        item: "Game Access",
+        user: username,
+      },
+    };
+
+    const paymentCallbacks = {
+      onReadyForServerApproval: (paymentId) => {
+        console.log("📩 Mock approval for:", paymentId);
+        // No server — just logging
+      },
+      onReadyForServerCompletion: (paymentId, txid) => {
+        console.log("✅ Mock complete:", paymentId, txid);
+        setIsPaid(true); // Unlock access
+      },
+      onCancel: (paymentId) => {
+        console.warn("🚫 Payment cancelled", paymentId);
+      },
+      onError: (error, payment) => {
+        console.error("❌ Payment error", error, payment);
+      },
+    };
 
     try {
-      const paymentData = {
-        amount: 0.001, // small amount for testing
-        memo: "Testing Pi Payment in PiMemory",
-        metadata: { type: "test-payment", purpose: "unlock game" }
-      };
-
-      const payment = await window.Pi.createPayment(paymentData, {
-        onReadyForServerApproval: (paymentId) => {
-          console.log("✅ Ready for server approval", paymentId);
-          // Optionally send paymentId to your server to approve it
-        },
-        onReadyForServerCompletion: (paymentId, txid) => {
-          console.log("✅ Ready for server completion", paymentId, txid);
-          // Optionally notify your server to complete the payment
-        },
-        onCancel: (paymentId) => {
-          console.log("❌ Payment cancelled", paymentId);
-        },
-        onError: (error, payment) => {
-          console.error("❌ Payment error", error);
-        }
-      });
-
-      console.log("Payment result:", payment);
+      const payment = await window.Pi.createPayment(paymentData, paymentCallbacks);
+      console.log("🎉 Payment started:", payment);
     } catch (error) {
-      console.error("Payment initiation failed:", error);
+      console.error("❌ Failed to start payment:", error);
     }
   };
 
@@ -69,14 +75,18 @@ export default function HomePage() {
 
         <h2 className="subtitle">Choose a game</h2>
         <div className="game-selector">
-          <a className="menu-button" href="/cards">🎮 Play PiCards</a>
+          <a className={`menu-button ${!isPaid ? 'disabled' : ''}`} href={isPaid ? "/cards" : "#"} onClick={e => { if (!isPaid) e.preventDefault(); }}>
+            🎮 {isPaid ? "Play PiCards" : "Unlock with Pi first"}
+          </a>
         </div>
 
-        <div style={{ marginTop: "2rem" }}>
-          <button className="menu-button" onClick={handlePayment}>
-            💸 Pay with Pi (Test)
-          </button>
-        </div>
+        {!isPaid && (
+          <div style={{ marginTop: "2rem" }}>
+            <button className="menu-button" onClick={handlePayment}>
+              💸 Pay with Pi to Unlock
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );
