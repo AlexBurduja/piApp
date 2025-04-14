@@ -12,7 +12,7 @@ function MyApp({ Component, pageProps }) {
         onLoad={() => {
           if (window.Pi) {
             console.log("✅ Pi SDK loaded");
-            window.Pi.init({ version: "2.0", sandbox: true });
+            window.Pi.init({ version: "2.0", sandbox: false });
           } else {
             console.warn("❌ Pi SDK NOT found after script load");
           }
