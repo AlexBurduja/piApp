@@ -8,7 +8,7 @@ export default function HomePage() {
     const authenticateUser = async () => {
       if (typeof window !== 'undefined' && window.Pi) {
         try {
-          const scopes = ['username'];
+          const scopes = ['username', 'payments'];
           const authResult = await window.Pi.authenticate(scopes, (payment) => {
             console.log('Unfinished payment found:', payment);
           });
