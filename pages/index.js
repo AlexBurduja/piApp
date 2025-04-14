@@ -3,20 +3,20 @@ import { useEffect, useState } from 'react';
 export default function HomePage() {
   const [username, setUsername] = useState(null);
   const [error, setError] = useState(null);
-  const [isPaid, setIsPaid] = useState(false); // ← to track payment state
+  const [isPaid, setIsPaid] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (typeof window !== 'undefined' && window.Pi) {
         console.log("✅ Pi SDK now available");
-  
+
         const authenticate = async () => {
           try {
             const scopes = ['username', 'payments'];
             const res = await window.Pi.authenticate(scopes, (payment) => {
               console.log("💸 Unfinished payment found:", payment);
             });
-  
+
             console.log("👤 User:", res.user.username);
             setUsername(res.user.username);
           } catch (err) {
@@ -24,17 +24,16 @@ export default function HomePage() {
             setError("Failed to authenticate with Pi");
           }
         };
-  
+
         authenticate();
-        clearInterval(interval); // Stop checking
+        clearInterval(interval);
       } else {
         console.log("⏳ Waiting for Pi SDK...");
       }
     }, 500);
-  
+
     return () => clearInterval(interval);
   }, []);
-  
 
   const handlePayment = async () => {
     if (!window.Pi) {
@@ -52,17 +51,41 @@ export default function HomePage() {
     };
 
     const paymentCallbacks = {
-      onReadyForServerApproval: (paymentId) => {
-        console.log("📩 Auto-approving (mock) payment:", paymentId);
-        window.Pi.approvePayment(paymentId); // 👈 this is the key
+      onReadyForServerApproval: async (paymentId) => {
+        console.log("📩 Sending to backend for approval:", paymentId);
+        try {
+          const res = await fetch("/api/approve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentId }),
+          });
+          const data = await res.json();
+          console.log("✅ Approved by backend:", data);
+        } catch (err) {
+          console.error("❌ Backend approval failed:", err);
+        }
       },
-      onReadyForServerCompletion: (paymentId, txid) => {
-        console.log("✅ Mock complete:", paymentId, txid);
-        setIsPaid(true); // Unlock access
+
+      onReadyForServerCompletion: async (paymentId, txid) => {
+        console.log("✅ Blockchain tx complete:", paymentId, txid);
+        try {
+          const res = await fetch("/api/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentId, txid }),
+          });
+          const data = await res.json();
+          console.log("✅ Server marked payment complete:", data);
+          setIsPaid(true);
+        } catch (err) {
+          console.error("❌ Completion failed:", err);
+        }
       },
+
       onCancel: (paymentId) => {
         console.warn("🚫 Payment cancelled", paymentId);
       },
+
       onError: (error, payment) => {
         console.error("❌ Payment error", error, payment);
       },
@@ -86,7 +109,13 @@ export default function HomePage() {
 
         <h2 className="subtitle">Choose a game</h2>
         <div className="game-selector">
-          <a className={`menu-button ${!isPaid ? 'disabled' : ''}`} href={isPaid ? "/cards" : "#"} onClick={e => { if (!isPaid) e.preventDefault(); }}>
+          <a
+            className={`menu-button ${!isPaid ? 'disabled' : ''}`}
+            href={isPaid ? "/cards" : "#"}
+            onClick={(e) => {
+              if (!isPaid) e.preventDefault();
+            }}
+          >
             🎮 {isPaid ? "Play PiCards" : "Unlock with Pi first"}
           </a>
         </div>
