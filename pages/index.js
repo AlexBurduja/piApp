@@ -6,29 +6,35 @@ export default function HomePage() {
   const [isPaid, setIsPaid] = useState(false); // ← to track payment state
 
   useEffect(() => {
-    const authenticateUser = async () => {
+    const interval = setInterval(() => {
       if (typeof window !== 'undefined' && window.Pi) {
-        console.log("🔍 Pi SDK found, trying to authenticate...");
+        console.log("✅ Pi SDK now available");
   
-        try {
-          const scopes = ['username', 'payments'];
-          const authResult = await window.Pi.authenticate(scopes, (payment) => {
-            console.log('Unfinished payment found:', payment);
-          });
+        const authenticate = async () => {
+          try {
+            const scopes = ['username', 'payments'];
+            const res = await window.Pi.authenticate(scopes, (payment) => {
+              console.log("💸 Unfinished payment found:", payment);
+            });
   
-          console.log('✅ Authenticated as:', authResult.user.username);
-          setUsername(authResult.user.username);
-        } catch (err) {
-          console.error('❌ Authentication failed:', err);
-          setError('Could not authenticate with Pi Network.');
-        }
+            console.log("👤 User:", res.user.username);
+            setUsername(res.user.username);
+          } catch (err) {
+            console.error("❌ Authentication failed:", err);
+            setError("Failed to authenticate with Pi");
+          }
+        };
+  
+        authenticate();
+        clearInterval(interval); // Stop checking
       } else {
-        console.warn("❌ Pi SDK not found");
+        console.log("⏳ Waiting for Pi SDK...");
       }
-    };
+    }, 500);
   
-    authenticateUser();
+    return () => clearInterval(interval);
   }, []);
+  
 
   const handlePayment = async () => {
     if (!window.Pi) {

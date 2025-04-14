@@ -14,7 +14,7 @@ function MyApp({ Component, pageProps }) {
             console.log("✅ Pi SDK loaded");
             window.Pi.init({ version: "2.0", sandbox: true });
           } else {
-            console.warn("❌ Pi SDK not found on load");
+            console.warn("❌ Pi SDK NOT found after script load");
           }
         }}
       />
