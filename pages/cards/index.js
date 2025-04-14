@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 export default function PiMemoryApp() {
-  const [username, setUsername] = useState('Pioneer');
+  const [username, setUsername] = useState(null);
   const [screen, setScreen] = useState('home');
   const [cards, setCards] = useState([]);
   const [flipped, setFlipped] = useState([]);
@@ -14,29 +14,29 @@ export default function PiMemoryApp() {
   const [stars, setStars] = useState(0);
   const [completedLevels, setCompletedLevels] = useState([]);
 
-  useEffect(() => {
-    const initPi = async () => {
-      try {
-        const scopes = ['username'];
-        const result = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
-        const piUsername = result.user.username;
-        setUsername(piUsername);
+  const initPi = async () => {
+    if (typeof window === 'undefined' || !window.Pi) {
+      console.warn('Pi SDK not available');
+      return;
+    }
+    try {
+      const scopes = ['username'];
+      const result = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+      const piUsername = result.user.username;
+      setUsername(piUsername);
 
-        const savedLevels = localStorage.getItem(`completedLevels_${piUsername}`);
-        if (savedLevels) {
-          setCompletedLevels(JSON.parse(savedLevels));
-        }
-      } catch (err) {
-        console.error('Pi authentication failed:', err);
+      const savedLevels = localStorage.getItem(`completedLevels_${piUsername}`);
+      if (savedLevels) {
+        setCompletedLevels(JSON.parse(savedLevels));
       }
-    };
+    } catch (err) {
+      console.error('Pi authentication failed:', err);
+    }
+  };
 
-    const onIncompletePaymentFound = (payment) => {
-      console.log('Found incomplete payment:', payment);
-    };
-
-    initPi();
-  }, []);
+  const onIncompletePaymentFound = (payment) => {
+    console.log('Found incomplete payment:', payment);
+  };
 
   const startGame = (size) => {
     const numCards = size * size;
@@ -131,7 +131,11 @@ export default function PiMemoryApp() {
       {screen === 'home' && (
         <div className="menu-screen">
           <h1 className="title">PiMemory</h1>
-          <p className="greeting">Hello, {username}!</p>
+          {username ? (
+            <p className="greeting">Hello, {username}!</p>
+          ) : (
+            <button className="menu-button" onClick={initPi}>🔐 Log in with Pi</button>
+          )}
           <h2 className="subtitle">Choose a level</h2>
           <div className="level-buttons">
             {[2, 4, 6, 8].map((size, index) => (
