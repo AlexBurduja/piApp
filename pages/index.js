@@ -8,20 +8,25 @@ export default function HomePage() {
   useEffect(() => {
     const authenticateUser = async () => {
       if (typeof window !== 'undefined' && window.Pi) {
+        console.log("🔍 Pi SDK found, trying to authenticate...");
+  
         try {
           const scopes = ['username', 'payments'];
           const authResult = await window.Pi.authenticate(scopes, (payment) => {
             console.log('Unfinished payment found:', payment);
           });
+  
           console.log('✅ Authenticated as:', authResult.user.username);
           setUsername(authResult.user.username);
         } catch (err) {
-          console.error('Authentication failed:', err);
+          console.error('❌ Authentication failed:', err);
           setError('Could not authenticate with Pi Network.');
         }
+      } else {
+        console.warn("❌ Pi SDK not found");
       }
     };
-
+  
     authenticateUser();
   }, []);
 
