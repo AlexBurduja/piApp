@@ -53,8 +53,8 @@ export default function HomePage() {
 
     const paymentCallbacks = {
       onReadyForServerApproval: (paymentId) => {
-        console.log("📩 Mock approval for:", paymentId);
-        // No server — just logging
+        console.log("📩 Auto-approving (mock) payment:", paymentId);
+        window.Pi.approvePayment(paymentId); // 👈 this is the key
       },
       onReadyForServerCompletion: (paymentId, txid) => {
         console.log("✅ Mock complete:", paymentId, txid);
