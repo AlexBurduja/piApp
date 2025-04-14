@@ -1,4 +1,4 @@
-'use client'
+
 import { useEffect, useState } from 'react';
 
 export default function HomePage() {
@@ -7,28 +7,31 @@ export default function HomePage() {
 
   useEffect(() => {
     const authenticateUser = async () => {
-      if (typeof window !== 'undefined' && window.Pi) {
-        console.log('Pi SDK found, attempting to authenticate...');
+      // Wait until Pi is available
+      if (typeof window === 'undefined' || !window.Pi) {
+        console.warn('⏳ Pi SDK not yet available');
+        return;
+      }
   
-        try {
-          const scopes = ['username'];
-          const authResult = await window.Pi.authenticate(scopes, (payment) => {
-            console.log('Unfinished payment:', payment);
-          });
-  
-          console.log('Auth result:', authResult);
-          setUsername(authResult.user.username);
-        } catch (err) {
-          console.error('Authentication error:', err);
-          setError('Could not authenticate with Pi Network.');
-        }
-      } else {
-        console.warn('Pi SDK not found.');
+      console.log('🔐 Pi SDK ready, authenticating...');
+      try {
+        const scopes = ['username'];
+        const result = await window.Pi.authenticate(scopes, (payment) => {
+          console.log('Unfinished payment:', payment);
+        });
+        console.log('✅ Auth result:', result);
+        setUsername(result.user.username);
+      } catch (err) {
+        console.error('❌ Auth failed:', err);
+        setError('Could not authenticate with Pi Network.');
       }
     };
   
-    authenticateUser();
+    // Run shortly after load to ensure SDK is ready
+    const delay = setTimeout(authenticateUser, 1000);
+    return () => clearTimeout(delay);
   }, []);
+  
 
   return (
     <main className="app-container">

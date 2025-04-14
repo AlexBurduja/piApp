@@ -1,15 +1,9 @@
+
 import '../global.css'
 import '../piMemory.css'
 import Script from 'next/script';
-import { useEffect } from 'react';
 
 function MyApp({ Component, pageProps }) {
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.Pi) {
-      window.Pi.init({ version: '2.0', sandbox: true });
-    }
-  }, []);
-
   return (
     <>
       <Script
@@ -17,7 +11,10 @@ function MyApp({ Component, pageProps }) {
         strategy="afterInteractive"
         onLoad={() => {
           if (window.Pi) {
-            window.Pi.init({ version: '2.0', sandbox: true });
+            console.log("✅ Pi SDK loaded");
+            window.Pi.init({ version: "2.0", sandbox: true });
+          } else {
+            console.warn("❌ Pi SDK not found on load");
           }
         }}
       />
