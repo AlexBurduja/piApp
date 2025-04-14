@@ -25,6 +25,7 @@ export default function HomePage() {
       const result = await window.Pi.authenticate(['username'], (payment) => {
         console.log('Incomplete payment:', payment);
       });
+      console.log(result);
       setUsername(result.user.username);
     } catch (err) {
       setError(`Pi login failed: ${err.message}`);
