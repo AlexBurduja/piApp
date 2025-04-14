@@ -5,10 +5,11 @@ export default function HomePage() {
   const [error, setError] = useState(null);
   const [isPaid, setIsPaid] = useState(false);
 
+  // Authenticate the user using Pi SDK
   useEffect(() => {
     const interval = setInterval(() => {
       if (typeof window !== 'undefined' && window.Pi) {
-        console.log("✅ Pi SDK now available");
+        console.log("✅ Pi SDK available");
 
         const authenticate = async () => {
           try {
@@ -17,11 +18,11 @@ export default function HomePage() {
               console.log("💸 Unfinished payment found:", payment);
             });
 
-            console.log("👤 User:", res.user.username);
+            console.log("👤 Authenticated as:", res.user.username);
             setUsername(res.user.username);
           } catch (err) {
-            console.error("❌ Authentication failed:", err);
-            setError("Failed to authenticate with Pi");
+            console.error("❌ Auth failed:", err);
+            setError("Could not authenticate with Pi.");
           }
         };
 
@@ -35,6 +36,27 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Utility function to call local backend API routes
+  const callApi = async (url, payload) => {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`API ${url} failed: ${res.status} - ${text}`);
+      }
+
+      return await res.json();
+    } catch (err) {
+      console.error("❌ API call failed:", err);
+      throw err;
+    }
+  };
+
   const handlePayment = async () => {
     if (!window.Pi) {
       setError("Pi SDK not available");
@@ -43,9 +65,8 @@ export default function HomePage() {
 
     const paymentData = {
       amount: 0.001,
-      memo: "PiMemory Test Access",
+      memo: "PiMemory Game Access",
       metadata: {
-        item: "Game Access",
         user: username,
       },
     };
@@ -54,48 +75,38 @@ export default function HomePage() {
       onReadyForServerApproval: async (paymentId) => {
         console.log("📩 Sending to backend for approval:", paymentId);
         try {
-          const res = await fetch("/api/approve", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentId }),
-          });
-          const data = await res.json();
-          console.log("✅ Approved by backend:", data);
+          const data = await callApi("/api/approve", { paymentId });
+          console.log("✅ Payment approved:", data);
         } catch (err) {
-          console.error("❌ Backend approval failed:", err);
+          console.error("❌ Payment approval failed:", err);
         }
       },
 
       onReadyForServerCompletion: async (paymentId, txid) => {
-        console.log("✅ Blockchain tx complete:", paymentId, txid);
+        console.log("✅ Blockchain complete:", paymentId, txid);
         try {
-          const res = await fetch("/api/complete", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentId, txid }),
-          });
-          const data = await res.json();
-          console.log("✅ Server marked payment complete:", data);
+          const data = await callApi("/api/complete", { paymentId, txid });
+          console.log("✅ Payment marked complete:", data);
           setIsPaid(true);
         } catch (err) {
-          console.error("❌ Completion failed:", err);
+          console.error("❌ Completion error:", err);
         }
       },
 
       onCancel: (paymentId) => {
-        console.warn("🚫 Payment cancelled", paymentId);
+        console.warn("🚫 Payment cancelled by user:", paymentId);
       },
 
       onError: (error, payment) => {
-        console.error("❌ Payment error", error, payment);
+        console.error("❌ Payment error:", error, payment);
       },
     };
 
     try {
       const payment = await window.Pi.createPayment(paymentData, paymentCallbacks);
-      console.log("🎉 Payment started:", payment);
-    } catch (error) {
-      console.error("❌ Failed to start payment:", error);
+      console.log("🎉 Payment flow started:", payment);
+    } catch (err) {
+      console.error("❌ Payment init error:", err);
     }
   };
 
