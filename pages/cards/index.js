@@ -68,7 +68,7 @@ export default function PiMemoryApp() {
   const [completedLevels, setCompletedLevels] = useState([]);
   const [isClient, setIsClient] = useState(false);
 
-  const piUsernameRef = useRef(null); // ✅ referință stabilă
+  const piUsernameRef = useRef(null);
   const correctSound = useRef(null);
   const wrongSound = useRef(null);
   const flipSound = useRef(null);
@@ -76,38 +76,57 @@ export default function PiMemoryApp() {
 
   const initPi = async () => {
     if (typeof window === 'undefined' || !window.Pi) return;
+
     try {
+      const saved = localStorage.getItem("pi_username");
+      if (saved) {
+        console.log("✅ Username loaded from localStorage:", saved);
+        setUsername(saved);
+        piUsernameRef.current = saved;
+        return;
+      }
+
       const scopes = ['username'];
       const result = await window.Pi.authenticate(scopes, () => {});
       const piUsername = result.user.username;
+
       setUsername(piUsername);
       piUsernameRef.current = piUsername;
+      localStorage.setItem("pi_username", piUsername);
 
-      const savedLevels = localStorage.getItem(`completedLevels_${piUsername}`);
-      if (savedLevels) {
-        setCompletedLevels(JSON.parse(savedLevels));
+      console.log("🔐 Logged in via Pi:", piUsername);
+    } catch (err) {
+      console.error("❌ Pi auth failed:", err);
+    }
+  };
+
+  const loadCompletedLevels = async (user) => {
+    try {
+      const saved = localStorage.getItem(`completedLevels_${user}`);
+      if (saved) {
+        setCompletedLevels(JSON.parse(saved));
       }
 
-      const snapshot = await getDocs(collection(db, "users", piUsername, "levels"));
+      const snapshot = await getDocs(collection(db, "users", user, "levels"));
       const levelsFromDb = snapshot.docs.map(doc => doc.data()?.level).filter(l => typeof l === "number");
 
       if (levelsFromDb.length > 0) {
         setCompletedLevels(levelsFromDb);
-        localStorage.setItem(`completedLevels_${piUsername}`, JSON.stringify(levelsFromDb));
+        localStorage.setItem(`completedLevels_${user}`, JSON.stringify(levelsFromDb));
       }
     } catch (err) {
-      console.error("❌ Pi auth or Firebase error:", err);
+      console.error("❌ Error loading levels:", err);
     }
   };
 
   const startGame = (size) => {
     const numCards = size * size;
     const numPairs = numCards / 2;
-    const allEmojis = ['🪙', '🔐', '💻', '🌐', '📱', '📈', '📉', '💡', '💰', '🧠',
+    const emojis = ['🪙', '🔐', '💻', '🌐', '📱', '📈', '📉', '💡', '💰', '🧠',
       '💾', '💳', '📦', '🚀', '⚙️', '🧮', '⛓️', '🔗', '📊', '🛡️',
       '🧱', '🔍', '👨‍💻', '👩‍💻', '🕹️', '📂', '🧾', '🌙', '☀️', '✨'];
 
-    const selected = allEmojis.slice(0, numPairs);
+    const selected = emojis.slice(0, numPairs);
     const shuffled = [...selected, ...selected]
       .sort(() => 0.5 - Math.random())
       .map((type, index) => ({ id: index, type }));
@@ -142,9 +161,9 @@ export default function PiMemoryApp() {
         if (newMatched.length === cards.length) {
           const finishedAt = Date.now();
           const duration = Math.floor((finishedAt - startTime) / 1000);
-
           let bonus = 0;
           let starsEarned = 1;
+
           if (duration < 20) bonus = 100, starsEarned = 5;
           else if (duration < 40) bonus = 75, starsEarned = 4;
           else if (duration < 60) bonus = 50, starsEarned = 3;
@@ -157,17 +176,15 @@ export default function PiMemoryApp() {
           setEndTime(duration);
           setStars(starsEarned);
 
+          const user = piUsernameRef.current;
           const updated = [...new Set([...completedLevels, level])];
-          localStorage.setItem(`completedLevels_${piUsernameRef.current}`, JSON.stringify(updated));
+          localStorage.setItem(`completedLevels_${user}`, JSON.stringify(updated));
           setCompletedLevels(updated);
           setShowComplete(true);
           setScreen('complete');
 
-          const finalUsername = piUsernameRef.current;
-          if (finalUsername) {
-            saveGameData(finalUsername, level, finalScore, starsEarned, duration, updated);
-          } else {
-            console.warn("❌ Username from ref is null");
+          if (user) {
+            saveGameData(user, level, finalScore, starsEarned, duration, updated);
           }
         }
       } else {
@@ -189,7 +206,11 @@ export default function PiMemoryApp() {
       flipSound.current = new Audio("/sounds/flip.mp3");
       winSound.current = new Audio("/sounds/win.mp3");
     }
-    initPi();
+
+    initPi().then(() => {
+      const user = localStorage.getItem("pi_username");
+      if (user) loadCompletedLevels(user);
+    });
   }, []);
 
   if (!isClient) return null;
@@ -203,8 +224,9 @@ export default function PiMemoryApp() {
           <div className="level-buttons">
             {[2, 4, 6, 8].map((size, index) => {
               const isCompleted = completedLevels.includes(size);
-              const previousLevel = [2, 4, 6, 8][index - 1];
-              const isUnlocked = index === 0 || completedLevels.includes(previousLevel);
+              const previous = [2, 4, 6, 8][index - 1];
+              const isUnlocked = index === 0 || completedLevels.includes(previous);
+
               return (
                 <button
                   key={size}
