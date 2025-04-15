@@ -42,11 +42,18 @@ export default function PiMemoryApp() {
       const piUsername = result.user.username;
       setUsername(piUsername);
 
-      const snapshot = await getDocs(collection(db, "users", piUsername, "levels"));
-      const levelsFromDb = snapshot.docs.map(doc => doc.data().level);
-      if (levelsFromDb.length > 0) {
-        setCompletedLevels(levelsFromDb);
-        localStorage.setItem(`completedLevels_${piUsername}`, JSON.stringify(levelsFromDb));
+      try {
+        const snapshot = await getDocs(collection(db, "users", piUsername, "levels"));
+        const levelsFromDb = snapshot.docs
+          .map(doc => doc.data()?.level)
+          .filter(lvl => typeof lvl === 'number');
+      
+        if (levelsFromDb.length > 0) {
+          setCompletedLevels(levelsFromDb);
+          localStorage.setItem(`completedLevels_${piUsername}`, JSON.stringify(levelsFromDb));
+        }
+      } catch (err) {
+        console.error("❌ Failed to load completed levels:", err);
       }
     } catch (err) {
       console.error('Pi authentication failed:', err);
