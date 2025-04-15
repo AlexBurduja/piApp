@@ -140,28 +140,31 @@ export default function PiMemoryApp() {
           }
 
           setTimeout(async () => {
-            winSound.current?.play();
-            setScore(prev => prev + bonus);
-            setEndTime(duration);
-            setStars(starsEarned);
-            const updated = [...new Set([...completedLevels, level])];
-            localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
-            setCompletedLevels(updated);
+  winSound.current?.play();
+  const finalScore = score + bonus;
+  setScore(finalScore);
+  setEndTime(duration);
+  setStars(starsEarned);
 
-            // 🔥 Save to Firebase
-            await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
-              level,
-              score: score + bonus,
-              stars: starsEarned,
-              time: duration,
-              completedAt: serverTimestamp(),
-            });
-            setShowComplete(true);
+  const updated = [...new Set([...completedLevels, level])];
+  localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
+  setCompletedLevels(updated);
+
+  // 🔥 Save to Firebase
+  await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
+    level,
+    score: finalScore,
+    stars: starsEarned,
+    time: duration,
+    completedAt: serverTimestamp(),
+  });
+
+  setShowComplete(true);
             setScreen('complete');
 
             await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", username), {
               username,
-              score: score + bonus,
+              score: finalScore,
               time: duration,
               stars: starsEarned,
               updatedAt: serverTimestamp(),
@@ -179,7 +182,7 @@ export default function PiMemoryApp() {
                 earnedAt: serverTimestamp(),
               });
             }
-            if (score + bonus >= 300) {
+            if (finalScore >= 300) {
               await setDoc(doc(db, "users", username, "badges", "scorer_300+"), {
                 name: "High Scorer",
                 earnedAt: serverTimestamp(),
