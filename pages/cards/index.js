@@ -5,7 +5,9 @@ import {
   setDoc,
   getDocs,
   collection,
-  serverTimestamp
+  serverTimestamp,
+  query,
+  orderBy
 } from 'firebase/firestore';
 
 export default function PiMemoryApp() {
@@ -20,6 +22,7 @@ export default function PiMemoryApp() {
   const [endTime, setEndTime] = useState(null);
   const [stars, setStars] = useState(0);
   const [completedLevels, setCompletedLevels] = useState([]);
+  const [leaderboardData, setLeaderboardData] = useState([]);
   const [isClient, setIsClient] = useState(false);
 
   const correctSound = useRef(null);
@@ -51,14 +54,14 @@ export default function PiMemoryApp() {
       const gameLevel = levelMap[level];
 
       await setDoc(doc(db, "users", user, "levels", `level_${gameLevel}`), {
-        level,
+        level: gameLevel,
         score: finalScore,
         stars: starsEarned,
         time: duration,
         completedAt: serverTimestamp(),
       });
 
-      await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", user), {
+      await setDoc(doc(db, "leaderboard", "memoryGame", "level_" + gameLevel, user), {
         username: user,
         score: finalScore,
         time: duration,
@@ -88,6 +91,22 @@ export default function PiMemoryApp() {
       }
     } catch (err) {
       console.error("❌ Error saving to Firebase:", err);
+    }
+  };
+
+  const loadLeaderboard = async () => {
+    try {
+      const levelMap = { 2: 1, 4: 2, 6: 3, 8: 4 };
+      const data = {};
+      for (const size of [2, 4, 6, 8]) {
+        const gameLevel = levelMap[size];
+        const q = query(collection(db, "leaderboard", "memoryGame", "level_" + gameLevel), orderBy("time"));
+        const snapshot = await getDocs(q);
+        data[`level_${gameLevel}`] = snapshot.docs.map(doc => doc.data());
+      }
+      setLeaderboardData(data);
+    } catch (err) {
+      console.error("❌ Failed to load leaderboard:", err);
     }
   };
 
@@ -177,6 +196,17 @@ export default function PiMemoryApp() {
         <div className="menu-screen">
           <h1 className="title">PiMemory</h1>
           <h2 className="subtitle">Choose a level</h2>
+          <button className="menu-button" style={{ marginBottom: '1rem' }} onClick={loadLeaderboard}>📊 View Leaderboard</button>
+          {leaderboardData && Object.entries(leaderboardData).map(([level, entries]) => (
+            <div key={level}>
+              <h3>{level.replace('_', ' ').toUpperCase()}</h3>
+              <ul>
+                {entries.map((entry, i) => (
+                  <li key={i}>{entry.username} - {entry.time}s ⭐{entry.stars}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
           <div className="level-buttons">
             {[2, 4, 6, 8].map((size, index) => {
               const isCompleted = completedLevels.includes(size);
