@@ -181,6 +181,15 @@ export default function PiMemoryApp() {
   });
 
   useEffect(() => {
+    if (username && showComplete && score > 0 && level) {
+      const duration = endTime;
+      const finalScore = score;
+      const updated = [...new Set([...completedLevels, level])];
+      saveGameData(username, level, finalScore, stars, duration, updated);
+    }
+  }, [username, showComplete]);
+
+  useEffect(() => {
     setIsClient(true);
     if (typeof window !== "undefined") {
       correctSound.current = new Audio("/sounds/correct.mp3");
