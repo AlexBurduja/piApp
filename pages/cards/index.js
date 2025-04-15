@@ -54,7 +54,7 @@ async function saveGameData(username, level, finalScore, starsEarned, duration, 
 }
 
 export default function PiMemoryApp() {
-  const [username, setUsername] = useState(null);
+  const [username, setUsername] = useState('');
   const [screen, setScreen] = useState('home');
   const [cards, setCards] = useState([]);
   const [flipped, setFlipped] = useState([]);
@@ -82,19 +82,10 @@ export default function PiMemoryApp() {
       if (saved) {
         console.log("✅ Username loaded from localStorage:", saved);
         setUsername(saved);
-        piUsernameRef.current = saved;
         return;
       }
 
-      const scopes = ['username'];
-      const result = await window.Pi.authenticate(scopes, () => {});
-      const piUsername = result.user.username;
-
-      setUsername(piUsername);
-      piUsernameRef.current = piUsername;
-      localStorage.setItem("pi_username", piUsername);
-
-      console.log("🔐 Logged in via Pi:", piUsername);
+      console.log("🔐 Logged in via Pi:", username);
     } catch (err) {
       console.error("❌ Pi auth failed:", err);
     }
@@ -176,7 +167,7 @@ export default function PiMemoryApp() {
           setEndTime(duration);
           setStars(starsEarned);
 
-          const user = piUsernameRef.current;
+          const user = username;
           const updated = [...new Set([...completedLevels, level])];
           localStorage.setItem(`completedLevels_${user}`, JSON.stringify(updated));
           setCompletedLevels(updated);

@@ -36,6 +36,7 @@ export default function HomePage() {
 
             console.log("👤 Authenticated as:", res.user.username);
             setUsername(res.user.username);
+            localStorage.setItem('pi_username',res.user.username)
 
             // Save user to Firestore
             await setDoc(doc(db, "users", res.user.username), {
