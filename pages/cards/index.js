@@ -141,7 +141,7 @@ export default function PiMemoryApp() {
           setScore(finalScore);
           setEndTime(duration);
           setStars(starsEarned);
-          setShowComplete(true);
+          // setShowComplete(true);
           setScreen('complete');
 
           saveGameData(username, level, finalScore, starsEarned, duration, updated);
