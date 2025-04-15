@@ -16,6 +16,10 @@ async function saveGameData(username, level, finalScore, starsEarned, duration, 
       timestamp: serverTimestamp(),
       note: "🤖 saveGameData a fost apelat!"
     });
+  } catch (e){
+    console.log(e)
+  }
+}
 
 
 export default function PiMemoryApp() {
