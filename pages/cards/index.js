@@ -4,12 +4,10 @@ import { db } from '../../lib/firebase';
 import {
   doc,
   setDoc,
-  getDoc,
   getDocs,
   collection,
   serverTimestamp
 } from 'firebase/firestore';
-
 
 export default function PiMemoryApp() {
   const [username, setUsername] = useState(null);
@@ -24,13 +22,11 @@ export default function PiMemoryApp() {
   const [showComplete, setShowComplete] = useState(false);
   const [stars, setStars] = useState(0);
   const [completedLevels, setCompletedLevels] = useState([]);
-  const [debugMessage, setDebugMessage] = useState('');
 
   const correctSound = useRef(null);
   const wrongSound = useRef(null);
   const flipSound = useRef(null);
   const winSound = useRef(null);
-
 
   const initPi = async () => {
     if (typeof window === 'undefined' || !window.Pi) {
@@ -43,22 +39,29 @@ export default function PiMemoryApp() {
       const piUsername = result.user.username;
       setUsername(piUsername);
 
+      const savedLevels = localStorage.getItem(`completedLevels_${piUsername}`);
+      if (savedLevels) {
+        setCompletedLevels(JSON.parse(savedLevels));
+      }
+
+      // 🔒 Try loading completed levels from Firebase
       try {
-        setDebugMessage("🔍 Loading completed levels from Firebase...");
         const snapshot = await getDocs(collection(db, "users", piUsername, "levels"));
-        const levelsFromDb = snapshot.docs
-          .map(doc => doc.data()?.level)
-          .filter(lvl => typeof lvl === 'number');
-      
-        setDebugMessage("✅ Levels fetched: " + JSON.stringify(levelsFromDb));
-      
+        const levelsFromDb = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data && typeof data.level === "number") {
+            levelsFromDb.push(data.level);
+          }
+        });
+
         if (levelsFromDb.length > 0) {
           setCompletedLevels(levelsFromDb);
           localStorage.setItem(`completedLevels_${piUsername}`, JSON.stringify(levelsFromDb));
         }
       } catch (err) {
-        console.error("❌ Firebase error:", err);
-        setDebugMessage("❌ Error loading levels: " + (err.message || err.toString()));
+        console.error("❌ Firebase error while loading levels:", err);
+        setCompletedLevels([]);
       }
     } catch (err) {
       console.error('Pi authentication failed:', err);
@@ -68,8 +71,6 @@ export default function PiMemoryApp() {
   const onIncompletePaymentFound = (payment) => {
     console.log('Found incomplete payment:', payment);
   };
-
-
 
   const startGame = (size) => {
     const numCards = size * size;
@@ -145,8 +146,8 @@ export default function PiMemoryApp() {
             setCompletedLevels(prev => {
               const updated = [...new Set([...prev, level])];
               localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
-            
-              // 🔥 Salvăm progresul și în Firebase
+
+              // 🔥 Save to Firebase
               setDoc(doc(db, "users", username, "levels", `level_${level}`), {
                 level,
                 score: score + bonus,
@@ -154,13 +155,12 @@ export default function PiMemoryApp() {
                 time: duration,
                 completedAt: serverTimestamp(),
               });
-            
+
               return updated;
             });
             setShowComplete(true);
             setScreen('complete');
 
-            // Save score to leaderboard
             await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", username), {
               username,
               score: score + bonus,
@@ -169,7 +169,6 @@ export default function PiMemoryApp() {
               updatedAt: serverTimestamp(),
             });
 
-            // Unlock badge if applicable
             if (duration < 20) {
               await setDoc(doc(db, "users", username, "badges", "speed_runner"), {
                 name: "Speed Runner",
@@ -216,11 +215,6 @@ export default function PiMemoryApp() {
 
   return (
     <main className="app-container">
-      {debugMessage && (
-        <div style={{ marginTop: '2rem', color: '#cc0000', fontSize: '0.9rem' }}>
-          Debug: {debugMessage}
-        </div>
-      )}
       {screen === 'home' && (
         <div className="menu-screen">
           <h1 className="title">PiMemory</h1>
