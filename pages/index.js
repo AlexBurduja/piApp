@@ -1,4 +1,12 @@
 import { useEffect, useState } from 'react';
+import { db } from '../lib/firebase';
+import {
+  doc,
+  setDoc,
+  serverTimestamp,
+  getDocs,
+  collection
+} from 'firebase/firestore';
 
 export default function HomePage() {
   const [username, setUsername] = useState(null);
@@ -20,6 +28,22 @@ export default function HomePage() {
 
             console.log("👤 Authenticated as:", res.user.username);
             setUsername(res.user.username);
+
+            // Save user to Firestore
+            await setDoc(doc(db, "users", res.user.username), {
+              username: res.user.username,
+              lastLogin: serverTimestamp(),
+            }, { merge: true });
+
+            // Check if user has any completed payments
+            const paymentsSnapshot = await getDocs(
+              collection(db, "users", res.user.username, "payments")
+            );
+
+            if (!paymentsSnapshot.empty) {
+              console.log("🟢 User already paid");
+              setIsPaid(true);
+            }
           } catch (err) {
             console.error("❌ Auth failed:", err);
             setError("Could not authenticate with Pi.");
@@ -85,7 +109,11 @@ export default function HomePage() {
       onReadyForServerCompletion: async (paymentId, txid) => {
         console.log("✅ Blockchain complete:", paymentId, txid);
         try {
-          const data = await callApi("/api/complete", { paymentId, txid });
+          const data = await callApi("/api/complete", {
+            paymentId,
+            txid,
+            username
+          });
           console.log("✅ Payment marked complete:", data);
           setIsPaid(true);
         } catch (err) {
