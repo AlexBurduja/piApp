@@ -1,4 +1,3 @@
-// PiMemoryApp.js
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../../lib/firebase';
 import {
@@ -48,7 +47,7 @@ async function saveGameData(username, level, finalScore, starsEarned, duration, 
       });
     }
 
-    console.log("✅ Data saved successfully to Firebase!");
+    console.log("✅ Data saved to Firebase!");
   } catch (err) {
     console.error("❌ Error saving to Firebase:", err);
   }
@@ -69,6 +68,7 @@ export default function PiMemoryApp() {
   const [completedLevels, setCompletedLevels] = useState([]);
   const [isClient, setIsClient] = useState(false);
 
+  const piUsernameRef = useRef(null); // ✅ referință stabilă
   const correctSound = useRef(null);
   const wrongSound = useRef(null);
   const flipSound = useRef(null);
@@ -81,6 +81,7 @@ export default function PiMemoryApp() {
       const result = await window.Pi.authenticate(scopes, () => {});
       const piUsername = result.user.username;
       setUsername(piUsername);
+      piUsernameRef.current = piUsername;
 
       const savedLevels = localStorage.getItem(`completedLevels_${piUsername}`);
       if (savedLevels) {
@@ -95,7 +96,7 @@ export default function PiMemoryApp() {
         localStorage.setItem(`completedLevels_${piUsername}`, JSON.stringify(levelsFromDb));
       }
     } catch (err) {
-      console.error("❌ Auth or Firebase error:", err);
+      console.error("❌ Pi auth or Firebase error:", err);
     }
   };
 
@@ -157,16 +158,16 @@ export default function PiMemoryApp() {
           setStars(starsEarned);
 
           const updated = [...new Set([...completedLevels, level])];
-          localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
+          localStorage.setItem(`completedLevels_${piUsernameRef.current}`, JSON.stringify(updated));
           setCompletedLevels(updated);
-
           setShowComplete(true);
           setScreen('complete');
 
-          if (username) {
-            saveGameData(username, level, finalScore, starsEarned, duration, updated);
+          const finalUsername = piUsernameRef.current;
+          if (finalUsername) {
+            saveGameData(finalUsername, level, finalScore, starsEarned, duration, updated);
           } else {
-            console.warn("❌ Username is null, skipping Firebase save.");
+            console.warn("❌ Username from ref is null");
           }
         }
       } else {
@@ -179,15 +180,6 @@ export default function PiMemoryApp() {
   const getGridStyle = () => ({
     gridTemplateColumns: `repeat(${level}, 1fr)`
   });
-
-  useEffect(() => {
-    if (username && showComplete && score > 0 && level) {
-      const duration = endTime;
-      const finalScore = score;
-      const updated = [...new Set([...completedLevels, level])];
-      saveGameData(username, level, finalScore, stars, duration, updated);
-    }
-  }, [username, showComplete]);
 
   useEffect(() => {
     setIsClient(true);
