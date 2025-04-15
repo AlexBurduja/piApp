@@ -139,56 +139,63 @@ export default function PiMemoryApp() {
             starsEarned = 1;
           }
 
-          setTimeout(async () => {
-  winSound.current?.play();
-  const finalScore = score + bonus;
-  setScore(finalScore);
-  setEndTime(duration);
-  setStars(starsEarned);
-
-  const updated = [...new Set([...completedLevels, level])];
-  localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
-  setCompletedLevels(updated);
-
-  // 🔥 Save to Firebase
-  await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
-    level,
-    score: finalScore,
-    stars: starsEarned,
-    time: duration,
-    completedAt: serverTimestamp(),
-  });
-
-  setShowComplete(true);
+          setTimeout(() => {
+            winSound.current?.play();
+            const finalScore = score + bonus;
+            setScore(finalScore);
+            setEndTime(duration);
+            setStars(starsEarned);
+          
+            const updated = [...new Set([...completedLevels, level])];
+            localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
+            setCompletedLevels(updated);
+          
+            setShowComplete(true);
             setScreen('complete');
-
-            await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", username), {
-              username,
-              score: finalScore,
-              time: duration,
-              stars: starsEarned,
-              updatedAt: serverTimestamp(),
-            });
-
-            if (duration < 20) {
-              await setDoc(doc(db, "users", username, "badges", "speed_runner"), {
-                name: "Speed Runner",
-                earnedAt: serverTimestamp(),
-              });
-            }
-            if ([2, 4, 6, 8].every(l => completedLevels.includes(l) || l === level)) {
-              await setDoc(doc(db, "users", username, "badges", "level_master"), {
-                name: "Level Master",
-                earnedAt: serverTimestamp(),
-              });
-            }
-            if (finalScore >= 300) {
-              await setDoc(doc(db, "users", username, "badges", "scorer_300+"), {
-                name: "High Scorer",
-                earnedAt: serverTimestamp(),
-              });
-            }
-          }, 800);
+          
+            (async () => {
+              try {
+                await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
+                  level,
+                  score: finalScore,
+                  stars: starsEarned,
+                  time: duration,
+                  completedAt: serverTimestamp(),
+                });
+          
+                await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", username), {
+                  username,
+                  score: finalScore,
+                  time: duration,
+                  stars: starsEarned,
+                  updatedAt: serverTimestamp(),
+                });
+          
+                if (duration < 20) {
+                  await setDoc(doc(db, "users", username, "badges", "speed_runner"), {
+                    name: "Speed Runner",
+                    earnedAt: serverTimestamp(),
+                  });
+                }
+          
+                if ([2, 4, 6, 8].every(l => updated.includes(l))) {
+                  await setDoc(doc(db, "users", username, "badges", "level_master"), {
+                    name: "Level Master",
+                    earnedAt: serverTimestamp(),
+                  });
+                }
+          
+                if (finalScore >= 300) {
+                  await setDoc(doc(db, "users", username, "badges", "scorer_300+"), {
+                    name: "High Scorer",
+                    earnedAt: serverTimestamp(),
+                  });
+                }
+              } catch (err) {
+                console.error("❌ Error saving data to Firebase:", err);
+              }
+            })();
+          }, 800);          
         }
       } else {
         wrongSound.current?.play();
