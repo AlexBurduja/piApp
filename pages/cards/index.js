@@ -42,9 +42,11 @@ export default function PiMemoryApp() {
       const piUsername = result.user.username;
       setUsername(piUsername);
 
-      const savedLevels = localStorage.getItem(`completedLevels_${piUsername}`);
-      if (savedLevels) {
-        setCompletedLevels(JSON.parse(savedLevels));
+      const snapshot = await getDocs(collection(db, "users", piUsername, "levels"));
+      const levelsFromDb = snapshot.docs.map(doc => doc.data().level);
+      if (levelsFromDb.length > 0) {
+        setCompletedLevels(levelsFromDb);
+        localStorage.setItem(`completedLevels_${piUsername}`, JSON.stringify(levelsFromDb));
       }
     } catch (err) {
       console.error('Pi authentication failed:', err);
@@ -55,7 +57,7 @@ export default function PiMemoryApp() {
     console.log('Found incomplete payment:', payment);
   };
 
-  
+
 
   const startGame = (size) => {
     const numCards = size * size;
@@ -131,6 +133,16 @@ export default function PiMemoryApp() {
             setCompletedLevels(prev => {
               const updated = [...new Set([...prev, level])];
               localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
+            
+              // 🔥 Salvăm progresul și în Firebase
+              setDoc(doc(db, "users", username, "levels", `level_${level}`), {
+                level,
+                score: score + bonus,
+                stars: starsEarned,
+                time: duration,
+                completedAt: serverTimestamp(),
+              });
+            
               return updated;
             });
             setShowComplete(true);
@@ -197,15 +209,22 @@ export default function PiMemoryApp() {
           <h1 className="title">PiMemory</h1>
           <h2 className="subtitle">Choose a level</h2>
           <div className="level-buttons">
-            {[2, 4, 6, 8].map((size, index) => (
-              <button
-                key={size}
-                className={`menu-button ${completedLevels.includes(size) ? 'completed' : ''}`}
-                onClick={() => startGame(size)}
-              >
-                Level {index + 1} ({size} × {size})
-              </button>
-            ))}
+            {[2, 4, 6, 8].map((size, index) => {
+              const isCompleted = completedLevels.includes(size);
+              const previousLevel = [2, 4, 6, 8][index - 1];
+              const isUnlocked = index === 0 || completedLevels.includes(previousLevel);
+
+              return (
+                <button
+                  key={size}
+                  className={`menu-button ${isCompleted ? 'completed' : ''} ${!isUnlocked ? 'locked' : ''}`}
+                  onClick={() => isUnlocked && startGame(size)}
+                  disabled={!isUnlocked}
+                >
+                  Level {index + 1} ({size} × {size})
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
