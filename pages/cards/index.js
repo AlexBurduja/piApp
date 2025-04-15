@@ -148,7 +148,7 @@ export default function PiMemoryApp() {
             localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
             setCompletedLevels(updated);
 
-            // 🔥 Save to Firebase separat (safe)
+            // 🔥 Save to Firebase
             await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
               level,
               score: score + bonus,
