@@ -163,8 +163,11 @@ export default function PiMemoryApp() {
           setShowComplete(true);
           setScreen('complete');
 
-          // 🔥 Salvează direct fără timeout
-          saveGameData(username, level, finalScore, starsEarned, duration, updated);
+          if (username) {
+            saveGameData(username, level, finalScore, starsEarned, duration, updated);
+          } else {
+            console.warn("❌ Username is null, skipping Firebase save.");
+          }
         }
       } else {
         wrongSound.current?.play();
