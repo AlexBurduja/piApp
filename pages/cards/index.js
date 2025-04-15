@@ -8,7 +8,6 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 
-
 export default function PiMemoryApp() {
   const [username, setUsername] = useState('');
   const [screen, setScreen] = useState('home');
@@ -19,41 +18,21 @@ export default function PiMemoryApp() {
   const [level, setLevel] = useState(null);
   const [startTime, setStartTime] = useState(null);
   const [endTime, setEndTime] = useState(null);
-  const [showComplete, setShowComplete] = useState(false);
   const [stars, setStars] = useState(0);
   const [completedLevels, setCompletedLevels] = useState([]);
   const [isClient, setIsClient] = useState(false);
 
-  const piUsernameRef = useRef(null);
   const correctSound = useRef(null);
   const wrongSound = useRef(null);
   const flipSound = useRef(null);
   const winSound = useRef(null);
 
-  const initPi = async () => {
-    if (typeof window === 'undefined' || !window.Pi) return;
-
-    try {
-      const saved = localStorage.getItem("pi_username");
-      if (saved) {
-        console.log("✅ Username loaded from localStorage:", saved);
-        setUsername(saved);
-        return;
-      }
-
-      console.log("🔐 Logged in via Pi:", username);
-    } catch (err) {
-      console.error("❌ Pi auth failed:", err);
-    }
-  };
+  const emojis = ['🪙', '🔐', '💻', '🌐', '📱', '📈', '📉', '💡', '💰', '🧠',
+    '💾', '💳', '📦', '🚀', '⚙️', '🧮', '⛓️', '🔗', '📊', '🛡️',
+    '🧱', '🔍', '👨‍💻', '👩‍💻', '🕹️', '📂', '🧾', '🌙', '☀️', '✨'];
 
   const loadCompletedLevels = async (user) => {
     try {
-      const saved = localStorage.getItem(`completedLevels_${user}`);
-      if (saved) {
-        setCompletedLevels(JSON.parse(saved));
-      }
-
       const snapshot = await getDocs(collection(db, "users", user, "levels"));
       const levelsFromDb = snapshot.docs.map(doc => doc.data()?.level).filter(l => typeof l === "number");
 
@@ -66,13 +45,51 @@ export default function PiMemoryApp() {
     }
   };
 
-  const startGame = (size) => {
-    const numCards = size * size;
-    const numPairs = numCards / 2;
-    const emojis = ['🪙', '🔐', '💻', '🌐', '📱', '📈', '📉', '💡', '💰', '🧠',
-      '💾', '💳', '📦', '🚀', '⚙️', '🧮', '⛓️', '🔗', '📊', '🛡️',
-      '🧱', '🔍', '👨‍💻', '👩‍💻', '🕹️', '📂', '🧾', '🌙', '☀️', '✨'];
+  const saveGameData = async (user, level, finalScore, starsEarned, duration, updated) => {
+    try {
+      await setDoc(doc(db, "users", user, "levels", `level_${level}`), {
+        level,
+        score: finalScore,
+        stars: starsEarned,
+        time: duration,
+        completedAt: serverTimestamp(),
+      });
 
+      await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", user), {
+        username: user,
+        score: finalScore,
+        time: duration,
+        stars: starsEarned,
+        updatedAt: serverTimestamp(),
+      });
+
+      if (duration < 20) {
+        await setDoc(doc(db, "users", user, "badges", "speed_runner"), {
+          name: "Speed Runner",
+          earnedAt: serverTimestamp(),
+        });
+      }
+
+      if ([2, 4, 6, 8].every(lvl => updated.includes(lvl))) {
+        await setDoc(doc(db, "users", user, "badges", "level_master"), {
+          name: "Level Master",
+          earnedAt: serverTimestamp(),
+        });
+      }
+
+      if (finalScore >= 300) {
+        await setDoc(doc(db, "users", user, "badges", "scorer_300+"), {
+          name: "High Scorer",
+          earnedAt: serverTimestamp(),
+        });
+      }
+    } catch (err) {
+      console.error("❌ Error saving to Firebase:", err);
+    }
+  };
+
+  const startGame = (size) => {
+    const numPairs = (size * size) / 2;
     const selected = emojis.slice(0, numPairs);
     const shuffled = [...selected, ...selected]
       .sort(() => 0.5 - Math.random())
@@ -85,7 +102,6 @@ export default function PiMemoryApp() {
     setLevel(size);
     setStartTime(Date.now());
     setEndTime(null);
-    setShowComplete(false);
     setStars(0);
     setScreen('game');
   };
@@ -106,103 +122,52 @@ export default function PiMemoryApp() {
         setScore(prev => prev + 10);
 
         if (newMatched.length === cards.length) {
-          const finishedAt = Date.now();
-          const duration = Math.floor((finishedAt - startTime) / 1000);
-          let bonus = 0;
+          const duration = Math.floor((Date.now() - startTime) / 1000);
           let starsEarned = 1;
+          let bonus = 10;
 
-          if (duration < 20) bonus = 100, starsEarned = 5;
-          else if (duration < 40) bonus = 75, starsEarned = 4;
-          else if (duration < 60) bonus = 50, starsEarned = 3;
-          else if (duration < 90) bonus = 25, starsEarned = 2;
-          else bonus = 10, starsEarned = 1;
+          if (duration < 20) starsEarned = 5, bonus = 100;
+          else if (duration < 40) starsEarned = 4, bonus = 75;
+          else if (duration < 60) starsEarned = 3, bonus = 50;
+          else if (duration < 90) starsEarned = 2, bonus = 25;
 
-          winSound.current?.play();
           const finalScore = score + bonus;
+          winSound.current?.play();
+
+          const updated = [...new Set([...completedLevels, level])];
+          localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
+          setCompletedLevels(updated);
+
           setScore(finalScore);
           setEndTime(duration);
           setStars(starsEarned);
-
-          const user = username;
-          const updated = [...new Set([...completedLevels, level])];
-          localStorage.setItem(`completedLevels_${user}`, JSON.stringify(updated));
-          setCompletedLevels(updated);
           setShowComplete(true);
           setScreen('complete');
 
-          async function saveGameData(username, level, finalScore, starsEarned, duration, updatedLevels) {
-            try {
-              await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
-                level,
-                score: finalScore,
-                stars: starsEarned,
-                time: duration,
-                completedAt: serverTimestamp(),
-              });
-          
-              await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", username), {
-                username,
-                score: finalScore,
-                time: duration,
-                stars: starsEarned,
-                updatedAt: serverTimestamp(),
-              });
-          
-              if (duration < 20) {
-                await setDoc(doc(db, "users", username, "badges", "speed_runner"), {
-                  name: "Speed Runner",
-                  earnedAt: serverTimestamp(),
-                });
-              }
-          
-              if ([2, 4, 6, 8].every(lvl => updatedLevels.includes(lvl))) {
-                await setDoc(doc(db, "users", username, "badges", "level_master"), {
-                  name: "Level Master",
-                  earnedAt: serverTimestamp(),
-                });
-              }
-          
-              if (finalScore >= 300) {
-                await setDoc(doc(db, "users", username, "badges", "scorer_300+"), {
-                  name: "High Scorer",
-                  earnedAt: serverTimestamp(),
-                });
-              }
-          
-              console.log("✅ Data saved to Firebase!");
-            } catch (err) {
-              console.error("❌ Error saving to Firebase:", err);
-            }
-          }
-
+          saveGameData(username, level, finalScore, starsEarned, duration, updated);
         }
       } else {
         wrongSound.current?.play();
       }
-      setFlipped([]);
+      setTimeout(() => setFlipped([]), 800);
     }
   };
 
-  const getGridStyle = () => ({
-    gridTemplateColumns: `repeat(${level}, 1fr)`
-  });
-
   useEffect(() => {
     setIsClient(true);
-    if (typeof window !== "undefined") {
-      correctSound.current = new Audio("/sounds/correct.mp3");
-      wrongSound.current = new Audio("/sounds/wrong.mp3");
-      flipSound.current = new Audio("/sounds/flip.mp3");
-      winSound.current = new Audio("/sounds/win.mp3");
+    const user = localStorage.getItem("pi_username");
+    if (user) {
+      setUsername(user);
+      loadCompletedLevels(user);
     }
 
-    initPi().then(() => {
-      const user = localStorage.getItem("pi_username");
-      if (user) loadCompletedLevels(user);
-    });
+    correctSound.current = new Audio("/sounds/correct.mp3");
+    wrongSound.current = new Audio("/sounds/wrong.mp3");
+    flipSound.current = new Audio("/sounds/flip.mp3");
+    winSound.current = new Audio("/sounds/win.mp3");
   }, []);
 
-  if (!isClient) return null;
+  if (!isClient || !username) return <p style={{ textAlign: 'center', marginTop: '5rem' }}>🔐 Please log in first.</p>;
 
   return (
     <main className="app-container">
@@ -236,7 +201,7 @@ export default function PiMemoryApp() {
           <h1 className="title">Match the Pairs</h1>
           <p className="score">Score: {score}</p>
           {startTime && <p className="timer">Time: {Math.floor((Date.now() - startTime) / 1000)}s</p>}
-          <div className="card-grid" style={getGridStyle()}>
+          <div className="card-grid" style={{ gridTemplateColumns: `repeat(${level}, 1fr)` }}>
             {cards.map((card, index) => {
               const isFlipped = flipped.includes(index) || matched.includes(index);
               return (
@@ -261,11 +226,7 @@ export default function PiMemoryApp() {
           <h2>🎉 Level Complete!</h2>
           <p>Time: {endTime}s</p>
           <p>Total Score: {score}</p>
-          <p>
-            {Array.from({ length: 5 }, (_, i) => (
-              <span key={i}>{i < stars ? '⭐' : '☆'}</span>
-            ))}
-          </p>
+          <p>{Array.from({ length: 5 }, (_, i) => <span key={i}>{i < stars ? '⭐' : '☆'}</span>)}</p>
           <button className="menu-button" onClick={() => setScreen('home')}>
             Back to Menu
           </button>
