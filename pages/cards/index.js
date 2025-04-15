@@ -142,6 +142,7 @@ export default function PiMemoryApp() {
           setTimeout(() => {
             winSound.current?.play();
             const finalScore = score + bonus;
+          
             setScore(finalScore);
             setEndTime(duration);
             setStars(starsEarned);
@@ -153,6 +154,7 @@ export default function PiMemoryApp() {
             setShowComplete(true);
             setScreen('complete');
           
+            // 🔁 Salvează în Firebase în fundal
             (async () => {
               try {
                 await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
@@ -192,10 +194,11 @@ export default function PiMemoryApp() {
                   });
                 }
               } catch (err) {
-                console.error("❌ Error saving data to Firebase:", err);
+                console.error("❌ Error saving to Firebase:", err);
               }
             })();
-          }, 800);          
+          }, 800);
+                  
         }
       } else {
         wrongSound.current?.play();
