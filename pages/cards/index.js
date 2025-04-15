@@ -99,7 +99,7 @@ export default function PiMemoryApp() {
     setFlipped([]);
     setMatched([]);
     setScore(0);
-    setLevel(size/2);
+    setLevel(size);
     setStartTime(Date.now());
     setEndTime(null);
     setStars(0);
