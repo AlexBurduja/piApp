@@ -144,20 +144,17 @@ export default function PiMemoryApp() {
             setScore(prev => prev + bonus);
             setEndTime(duration);
             setStars(starsEarned);
-            setCompletedLevels(prev => {
-              const updated = [...new Set([...prev, level])];
-              localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
+            const updated = [...new Set([...completedLevels, level])];
+            localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
+            setCompletedLevels(updated);
 
-              // 🔥 Save to Firebase
-              setDoc(doc(db, "users", username, "levels", `level_${level}`), {
-                level,
-                score: score + bonus,
-                stars: starsEarned,
-                time: duration,
-                completedAt: serverTimestamp(),
-              });
-
-              return updated;
+            // 🔥 Save to Firebase separat (safe)
+            await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
+              level,
+              score: score + bonus,
+              stars: starsEarned,
+              time: duration,
+              completedAt: serverTimestamp(),
             });
             setShowComplete(true);
             setScreen('complete');
