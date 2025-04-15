@@ -24,6 +24,7 @@ export default function PiMemoryApp() {
   const [showComplete, setShowComplete] = useState(false);
   const [stars, setStars] = useState(0);
   const [completedLevels, setCompletedLevels] = useState([]);
+  const [debugMessage, setDebugMessage] = useState('');
 
   const correctSound = useRef(null);
   const wrongSound = useRef(null);
@@ -43,17 +44,21 @@ export default function PiMemoryApp() {
       setUsername(piUsername);
 
       try {
+        setDebugMessage("🔍 Loading completed levels from Firebase...");
         const snapshot = await getDocs(collection(db, "users", piUsername, "levels"));
         const levelsFromDb = snapshot.docs
           .map(doc => doc.data()?.level)
           .filter(lvl => typeof lvl === 'number');
+      
+        setDebugMessage("✅ Levels fetched: " + JSON.stringify(levelsFromDb));
       
         if (levelsFromDb.length > 0) {
           setCompletedLevels(levelsFromDb);
           localStorage.setItem(`completedLevels_${piUsername}`, JSON.stringify(levelsFromDb));
         }
       } catch (err) {
-        console.error("❌ Failed to load completed levels:", err);
+        console.error("❌ Firebase error:", err);
+        setDebugMessage("❌ Error loading levels: " + (err.message || err.toString()));
       }
     } catch (err) {
       console.error('Pi authentication failed:', err);
@@ -211,6 +216,11 @@ export default function PiMemoryApp() {
 
   return (
     <main className="app-container">
+      {debugMessage && (
+        <div style={{ marginTop: '2rem', color: '#cc0000', fontSize: '0.9rem' }}>
+          Debug: {debugMessage}
+        </div>
+      )}
       {screen === 'home' && (
         <div className="menu-screen">
           <h1 className="title">PiMemory</h1>
