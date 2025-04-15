@@ -9,6 +9,53 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 
+async function saveGameData(username, level, finalScore, starsEarned, duration, updatedLevels) {
+  try {
+    console.log("📤 Saving to Firebase...");
+
+    await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
+      level,
+      score: finalScore,
+      stars: starsEarned,
+      time: duration,
+      completedAt: serverTimestamp(),
+    });
+
+    await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", username), {
+      username,
+      score: finalScore,
+      time: duration,
+      stars: starsEarned,
+      updatedAt: serverTimestamp(),
+    });
+
+    if (duration < 20) {
+      await setDoc(doc(db, "users", username, "badges", "speed_runner"), {
+        name: "Speed Runner",
+        earnedAt: serverTimestamp(),
+      });
+    }
+
+    if ([2, 4, 6, 8].every(lvl => updatedLevels.includes(lvl))) {
+      await setDoc(doc(db, "users", username, "badges", "level_master"), {
+        name: "Level Master",
+        earnedAt: serverTimestamp(),
+      });
+    }
+
+    if (finalScore >= 300) {
+      await setDoc(doc(db, "users", username, "badges", "scorer_300+"), {
+        name: "High Scorer",
+        earnedAt: serverTimestamp(),
+      });
+    }
+
+    console.log("✅ Data saved successfully to Firebase!");
+  } catch (err) {
+    console.error("❌ Error saving to Firebase:", err);
+  }
+}
+
 export default function PiMemoryApp() {
   const [username, setUsername] = useState(null);
   const [screen, setScreen] = useState('home');
@@ -29,51 +76,11 @@ export default function PiMemoryApp() {
   const flipSound = useRef(null);
   const winSound = useRef(null);
 
-  const saveGameData = async (username, level, finalScore, starsEarned, duration, updatedLevels) => {
-    try {
-      await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
-        level,
-        score: finalScore,
-        stars: starsEarned,
-        time: duration,
-        completedAt: serverTimestamp(),
-      });
-
-      await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", username), {
-        username,
-        score: finalScore,
-        time: duration,
-        stars: starsEarned,
-        updatedAt: serverTimestamp(),
-      });
-
-      if (duration < 20) {
-        await setDoc(doc(db, "users", username, "badges", "speed_runner"), {
-          name: "Speed Runner",
-          earnedAt: serverTimestamp(),
-        });
-      }
-
-      if ([2, 4, 6, 8].every(lvl => updatedLevels.includes(lvl))) {
-        await setDoc(doc(db, "users", username, "badges", "level_master"), {
-          name: "Level Master",
-          earnedAt: serverTimestamp(),
-        });
-      }
-
-      if (finalScore >= 300) {
-        await setDoc(doc(db, "users", username, "badges", "scorer_300+"), {
-          name: "High Scorer",
-          earnedAt: serverTimestamp(),
-        });
-      }
-    } catch (err) {
-      console.error("❌ Error saving to Firebase:", err);
-    }
-  };
-
   const initPi = async () => {
-    if (typeof window === 'undefined' || !window.Pi) return;
+    if (typeof window === 'undefined' || !window.Pi) {
+      console.warn('Pi SDK not available');
+      return;
+    }
     try {
       const scopes = ['username'];
       const result = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
@@ -85,15 +92,27 @@ export default function PiMemoryApp() {
         setCompletedLevels(JSON.parse(savedLevels));
       }
 
-      const snapshot = await getDocs(collection(db, "users", piUsername, "levels"));
-      const levelsFromDb = snapshot.docs.map(doc => doc.data()?.level).filter(l => typeof l === "number");
+      // 🔒 Try loading completed levels from Firebase
+      try {
+        const snapshot = await getDocs(collection(db, "users", piUsername, "levels"));
+        const levelsFromDb = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data && typeof data.level === "number") {
+            levelsFromDb.push(data.level);
+          }
+        });
 
-      if (levelsFromDb.length > 0) {
-        setCompletedLevels(levelsFromDb);
-        localStorage.setItem(`completedLevels_${piUsername}`, JSON.stringify(levelsFromDb));
+        if (levelsFromDb.length > 0) {
+          setCompletedLevels(levelsFromDb);
+          localStorage.setItem(`completedLevels_${piUsername}`, JSON.stringify(levelsFromDb));
+        }
+      } catch (err) {
+        console.error("❌ Firebase error while loading levels:", err);
+        setCompletedLevels([]);
       }
     } catch (err) {
-      console.error("❌ Auth or Firebase error:", err);
+      console.error('Pi authentication failed:', err);
     }
   };
 
@@ -104,7 +123,12 @@ export default function PiMemoryApp() {
   const startGame = (size) => {
     const numCards = size * size;
     const numPairs = numCards / 2;
-    const allEmojis = ['🪙', '🔐', '💻', '🌐', '📱', '📈', '📉', '💡', '💰', '🧠', '💾', '💳', '📦', '🚀', '⚙️', '🧮', '⛓️', '🔗', '📊', '🛡️', '🧱', '🔍', '👨‍💻', '👩‍💻', '🕹️', '📂', '🧾', '🌙', '☀️', '✨', '🛒', '📣', '🔄'];
+    const allEmojis = [
+      '🪙', '🔐', '💻', '🌐', '📱', '📈', '📉', '💡', '💰', '🧠',
+      '💾', '💳', '📦', '🚀', '⚙️', '🧮', '⛓️', '🔗', '📊', '🛡️',
+      '🧱', '🔍', '👨‍💻', '👩‍💻', '🕹️', '📂', '🧾', '🌙', '☀️', '✨',
+      '🛒', '📣', '🔄'
+    ];
 
     const selected = allEmojis.slice(0, numPairs);
     const shuffled = [...selected, ...selected]
@@ -146,31 +170,38 @@ export default function PiMemoryApp() {
           let starsEarned = 1;
 
           if (duration < 20) {
-            bonus = 100; starsEarned = 5;
+            bonus = 100;
+            starsEarned = 5;
           } else if (duration < 40) {
-            bonus = 75; starsEarned = 4;
+            bonus = 75;
+            starsEarned = 4;
           } else if (duration < 60) {
-            bonus = 50; starsEarned = 3;
+            bonus = 50;
+            starsEarned = 3;
           } else if (duration < 90) {
-            bonus = 25; starsEarned = 2;
+            bonus = 25;
+            starsEarned = 2;
           } else {
-            bonus = 10; starsEarned = 1;
+            bonus = 10;
+            starsEarned = 1;
           }
 
-          const finalScore = score + bonus;
-          winSound.current?.play();
-          setScore(finalScore);
-          setEndTime(duration);
-          setStars(starsEarned);
+          setTimeout(() => {
+  winSound.current?.play();
+  const finalScore = score + bonus;
+  setScore(finalScore);
+  setEndTime(duration);
+  setStars(starsEarned);
 
-          const updated = [...new Set([...completedLevels, level])];
-          localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
-          setCompletedLevels(updated);
+  const updated = [...new Set([...completedLevels, level])];
+  localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
+  setCompletedLevels(updated);
 
-          setShowComplete(true);
-          setScreen('complete');
+  setShowComplete(true);
+  setScreen('complete');
 
-          saveGameData(username, level, finalScore, starsEarned, duration, updated);
+  saveGameData(username, level, finalScore, starsEarned, duration, updated);
+}, 800);
         }
       } else {
         wrongSound.current?.play();
@@ -179,9 +210,11 @@ export default function PiMemoryApp() {
     }
   };
 
-  const getGridStyle = () => ({
-    gridTemplateColumns: `repeat(${level}, 1fr)`
-  });
+  const getGridStyle = () => {
+    return {
+      gridTemplateColumns: `repeat(${level}, 1fr)`
+    };
+  };
 
   useEffect(() => {
     setIsClient(true);
