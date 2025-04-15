@@ -11,16 +11,48 @@ import {
 
 async function saveGameData(username, level, finalScore, starsEarned, duration, updatedLevels) {
   try {
-    await setDoc(doc(db, "users", username, "debug", "test"), {
-      test: true,
-      timestamp: serverTimestamp(),
-      note: "🤖 saveGameData a fost apelat!"
+    await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
+      level,
+      score: finalScore,
+      stars: starsEarned,
+      time: duration,
+      completedAt: serverTimestamp(),
     });
-  } catch (e){
-    console.log(e)
+
+    await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", username), {
+      username,
+      score: finalScore,
+      time: duration,
+      stars: starsEarned,
+      updatedAt: serverTimestamp(),
+    });
+
+    if (duration < 20) {
+      await setDoc(doc(db, "users", username, "badges", "speed_runner"), {
+        name: "Speed Runner",
+        earnedAt: serverTimestamp(),
+      });
+    }
+
+    if ([2, 4, 6, 8].every(lvl => updatedLevels.includes(lvl))) {
+      await setDoc(doc(db, "users", username, "badges", "level_master"), {
+        name: "Level Master",
+        earnedAt: serverTimestamp(),
+      });
+    }
+
+    if (finalScore >= 300) {
+      await setDoc(doc(db, "users", username, "badges", "scorer_300+"), {
+        name: "High Scorer",
+        earnedAt: serverTimestamp(),
+      });
+    }
+
+    console.log("✅ Data saved successfully to Firebase!");
+  } catch (err) {
+    console.error("❌ Error saving to Firebase:", err);
   }
 }
-
 
 export default function PiMemoryApp() {
   const [username, setUsername] = useState(null);
@@ -46,7 +78,7 @@ export default function PiMemoryApp() {
     if (typeof window === 'undefined' || !window.Pi) return;
     try {
       const scopes = ['username'];
-      const result = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+      const result = await window.Pi.authenticate(scopes, () => {});
       const piUsername = result.user.username;
       setUsername(piUsername);
 
@@ -67,19 +99,12 @@ export default function PiMemoryApp() {
     }
   };
 
-  const onIncompletePaymentFound = (payment) => {
-    console.log('Found incomplete payment:', payment);
-  };
-
   const startGame = (size) => {
     const numCards = size * size;
     const numPairs = numCards / 2;
-    const allEmojis = [
-      '🪙', '🔐', '💻', '🌐', '📱', '📈', '📉', '💡', '💰', '🧠',
+    const allEmojis = ['🪙', '🔐', '💻', '🌐', '📱', '📈', '📉', '💡', '💰', '🧠',
       '💾', '💳', '📦', '🚀', '⚙️', '🧮', '⛓️', '🔗', '📊', '🛡️',
-      '🧱', '🔍', '👨‍💻', '👩‍💻', '🕹️', '📂', '🧾', '🌙', '☀️', '✨',
-      '🛒', '📣', '🔄'
-    ];
+      '🧱', '🔍', '👨‍💻', '👩‍💻', '🕹️', '📂', '🧾', '🌙', '☀️', '✨'];
 
     const selected = allEmojis.slice(0, numPairs);
     const shuffled = [...selected, ...selected]
@@ -119,45 +144,32 @@ export default function PiMemoryApp() {
 
           let bonus = 0;
           let starsEarned = 1;
+          if (duration < 20) bonus = 100, starsEarned = 5;
+          else if (duration < 40) bonus = 75, starsEarned = 4;
+          else if (duration < 60) bonus = 50, starsEarned = 3;
+          else if (duration < 90) bonus = 25, starsEarned = 2;
+          else bonus = 10, starsEarned = 1;
 
-          if (duration < 20) {
-            bonus = 100;
-            starsEarned = 5;
-          } else if (duration < 40) {
-            bonus = 75;
-            starsEarned = 4;
-          } else if (duration < 60) {
-            bonus = 50;
-            starsEarned = 3;
-          } else if (duration < 90) {
-            bonus = 25;
-            starsEarned = 2;
-          } else {
-            bonus = 10;
-            starsEarned = 1;
-          }
+          winSound.current?.play();
+          const finalScore = score + bonus;
+          setScore(finalScore);
+          setEndTime(duration);
+          setStars(starsEarned);
 
-          setTimeout(() => {
-            winSound.current?.play();
-            const finalScore = score + bonus;
-            setScore(finalScore);
-            setEndTime(duration);
-            setStars(starsEarned);
+          const updated = [...new Set([...completedLevels, level])];
+          localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
+          setCompletedLevels(updated);
 
-            const updated = [...new Set([...completedLevels, level])];
-            localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
-            setCompletedLevels(updated);
+          setShowComplete(true);
+          setScreen('complete');
 
-            setShowComplete(true);
-            setScreen('complete');
-
-            saveGameData(username, level, finalScore, starsEarned, duration, updated);
-          }, 800);
+          // 🔥 Salvează direct fără timeout
+          saveGameData(username, level, finalScore, starsEarned, duration, updated);
         }
       } else {
         wrongSound.current?.play();
       }
-      setTimeout(() => setFlipped([]), 800);
+      setFlipped([]);
     }
   };
 
@@ -167,14 +179,12 @@ export default function PiMemoryApp() {
 
   useEffect(() => {
     setIsClient(true);
-
     if (typeof window !== "undefined") {
       correctSound.current = new Audio("/sounds/correct.mp3");
       wrongSound.current = new Audio("/sounds/wrong.mp3");
       flipSound.current = new Audio("/sounds/flip.mp3");
       winSound.current = new Audio("/sounds/win.mp3");
     }
-
     initPi();
   }, []);
 
@@ -191,7 +201,6 @@ export default function PiMemoryApp() {
               const isCompleted = completedLevels.includes(size);
               const previousLevel = [2, 4, 6, 8][index - 1];
               const isUnlocked = index === 0 || completedLevels.includes(previousLevel);
-
               return (
                 <button
                   key={size}
@@ -212,7 +221,6 @@ export default function PiMemoryApp() {
           <h1 className="title">Match the Pairs</h1>
           <p className="score">Score: {score}</p>
           {startTime && <p className="timer">Time: {Math.floor((Date.now() - startTime) / 1000)}s</p>}
-
           <div className="card-grid" style={getGridStyle()}>
             {cards.map((card, index) => {
               const isFlipped = flipped.includes(index) || matched.includes(index);
