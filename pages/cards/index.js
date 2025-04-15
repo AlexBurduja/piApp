@@ -77,10 +77,7 @@ export default function PiMemoryApp() {
   const winSound = useRef(null);
 
   const initPi = async () => {
-    if (typeof window === 'undefined' || !window.Pi) {
-      console.warn('Pi SDK not available');
-      return;
-    }
+    if (typeof window === 'undefined' || !window.Pi) return;
     try {
       const scopes = ['username'];
       const result = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
@@ -92,27 +89,15 @@ export default function PiMemoryApp() {
         setCompletedLevels(JSON.parse(savedLevels));
       }
 
-      // 🔒 Try loading completed levels from Firebase
-      try {
-        const snapshot = await getDocs(collection(db, "users", piUsername, "levels"));
-        const levelsFromDb = [];
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          if (data && typeof data.level === "number") {
-            levelsFromDb.push(data.level);
-          }
-        });
+      const snapshot = await getDocs(collection(db, "users", piUsername, "levels"));
+      const levelsFromDb = snapshot.docs.map(doc => doc.data()?.level).filter(l => typeof l === "number");
 
-        if (levelsFromDb.length > 0) {
-          setCompletedLevels(levelsFromDb);
-          localStorage.setItem(`completedLevels_${piUsername}`, JSON.stringify(levelsFromDb));
-        }
-      } catch (err) {
-        console.error("❌ Firebase error while loading levels:", err);
-        setCompletedLevels([]);
+      if (levelsFromDb.length > 0) {
+        setCompletedLevels(levelsFromDb);
+        localStorage.setItem(`completedLevels_${piUsername}`, JSON.stringify(levelsFromDb));
       }
     } catch (err) {
-      console.error('Pi authentication failed:', err);
+      console.error("❌ Auth or Firebase error:", err);
     }
   };
 
@@ -187,21 +172,21 @@ export default function PiMemoryApp() {
           }
 
           setTimeout(() => {
-  winSound.current?.play();
-  const finalScore = score + bonus;
-  setScore(finalScore);
-  setEndTime(duration);
-  setStars(starsEarned);
+            winSound.current?.play();
+            const finalScore = score + bonus;
+            setScore(finalScore);
+            setEndTime(duration);
+            setStars(starsEarned);
 
-  const updated = [...new Set([...completedLevels, level])];
-  localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
-  setCompletedLevels(updated);
+            const updated = [...new Set([...completedLevels, level])];
+            localStorage.setItem(`completedLevels_${username}`, JSON.stringify(updated));
+            setCompletedLevels(updated);
 
-  setShowComplete(true);
-  setScreen('complete');
+            setShowComplete(true);
+            setScreen('complete');
 
-  saveGameData(username, level, finalScore, starsEarned, duration, updated);
-}, 800);
+            saveGameData(username, level, finalScore, starsEarned, duration, updated);
+          }, 800);
         }
       } else {
         wrongSound.current?.play();
@@ -210,11 +195,9 @@ export default function PiMemoryApp() {
     }
   };
 
-  const getGridStyle = () => {
-    return {
-      gridTemplateColumns: `repeat(${level}, 1fr)`
-    };
-  };
+  const getGridStyle = () => ({
+    gridTemplateColumns: `repeat(${level}, 1fr)`
+  });
 
   useEffect(() => {
     setIsClient(true);
