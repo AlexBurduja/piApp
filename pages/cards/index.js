@@ -1,4 +1,15 @@
-import { useState, useEffect } from 'react';
+// PiMemoryApp.js
+import { useState, useEffect, useRef } from 'react';
+import { db } from '../../lib/firebase';
+import {
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  collection,
+  serverTimestamp
+} from 'firebase/firestore';
+
 
 export default function PiMemoryApp() {
   const [username, setUsername] = useState(null);
@@ -13,6 +24,12 @@ export default function PiMemoryApp() {
   const [showComplete, setShowComplete] = useState(false);
   const [stars, setStars] = useState(0);
   const [completedLevels, setCompletedLevels] = useState([]);
+
+  const correctSound = useRef(null);
+  const wrongSound = useRef(null);
+  const flipSound = useRef(null);
+  const winSound = useRef(null);
+
 
   const initPi = async () => {
     if (typeof window === 'undefined' || !window.Pi) {
@@ -37,6 +54,8 @@ export default function PiMemoryApp() {
   const onIncompletePaymentFound = (payment) => {
     console.log('Found incomplete payment:', payment);
   };
+
+  
 
   const startGame = (size) => {
     const numCards = size * size;
@@ -68,12 +87,14 @@ export default function PiMemoryApp() {
   const handleFlip = (index) => {
     if (flipped.length === 2 || flipped.includes(index) || matched.includes(index)) return;
 
+    flipSound.current?.play();
     const newFlipped = [...flipped, index];
     setFlipped(newFlipped);
 
     if (newFlipped.length === 2) {
       const [first, second] = newFlipped;
       if (cards[first].type === cards[second].type) {
+        correctSound.current?.play();
         const newMatched = [...matched, first, second];
         setMatched(newMatched);
         setScore(prev => prev + 10);
@@ -102,7 +123,8 @@ export default function PiMemoryApp() {
             starsEarned = 1;
           }
 
-          setTimeout(() => {
+          setTimeout(async () => {
+            winSound.current?.play();
             setScore(prev => prev + bonus);
             setEndTime(duration);
             setStars(starsEarned);
@@ -113,8 +135,39 @@ export default function PiMemoryApp() {
             });
             setShowComplete(true);
             setScreen('complete');
+
+            // Save score to leaderboard
+            await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", username), {
+              username,
+              score: score + bonus,
+              time: duration,
+              stars: starsEarned,
+              updatedAt: serverTimestamp(),
+            });
+
+            // Unlock badge if applicable
+            if (duration < 20) {
+              await setDoc(doc(db, "users", username, "badges", "speed_runner"), {
+                name: "Speed Runner",
+                earnedAt: serverTimestamp(),
+              });
+            }
+            if ([2, 4, 6, 8].every(l => completedLevels.includes(l) || l === level)) {
+              await setDoc(doc(db, "users", username, "badges", "level_master"), {
+                name: "Level Master",
+                earnedAt: serverTimestamp(),
+              });
+            }
+            if (score + bonus >= 300) {
+              await setDoc(doc(db, "users", username, "badges", "scorer_300+"), {
+                name: "High Scorer",
+                earnedAt: serverTimestamp(),
+              });
+            }
           }, 800);
         }
+      } else {
+        wrongSound.current?.play();
       }
       setTimeout(() => setFlipped([]), 800);
     }
@@ -125,6 +178,17 @@ export default function PiMemoryApp() {
       gridTemplateColumns: `repeat(${level}, 1fr)`
     };
   };
+
+  useEffect(() => {
+    initPi();
+
+    if (typeof window !== "undefined") {
+      correctSound.current = new Audio("/sounds/correct.mp3");
+      wrongSound.current = new Audio("/sounds/wrong.mp3");
+      flipSound.current = new Audio("/sounds/flip.mp3");
+      winSound.current = new Audio("/sounds/win.mp3");
+    }
+  }, []);
 
   return (
     <main className="app-container">

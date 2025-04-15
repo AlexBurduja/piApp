@@ -149,9 +149,9 @@ export default function HomePage() {
 
   return (
     <main className="app-container">
-    {loading ? (
-      <Loader message="🔐 Logging you in..." />
-    ) : (
+    {/* {loading ? ( */}
+      {/* <Loader message="🔐 Logging you in..." /> */}
+    {/* ) : ( */}
       <div className="menu-screen">
       <h1 className="title">Welcome to PiMemory</h1>
       
@@ -179,7 +179,7 @@ export default function HomePage() {
         </div>
       )}
       </div>
-    )}
+    {/* )} */}
     </main>
     );
 }

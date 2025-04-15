@@ -138,3 +138,12 @@ body {
 .complete-screen h2,h3,h4{
     margin: 0;
 }
+
+.level-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  justify-content: center;
+  max-width: 400px;
+  margin: 0 auto;
+}
