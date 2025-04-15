@@ -47,7 +47,10 @@ export default function PiMemoryApp() {
 
   const saveGameData = async (user, level, finalScore, starsEarned, duration, updated) => {
     try {
-      await setDoc(doc(db, "users", user, "levels", `level_${level}`), {
+      const levelMap = { 2: 1, 4: 2, 6: 3, 8: 4 };
+      const gameLevel = levelMap[level];
+
+      await setDoc(doc(db, "users", user, "levels", `level_${gameLevel}`), {
         level,
         score: finalScore,
         stars: starsEarned,
