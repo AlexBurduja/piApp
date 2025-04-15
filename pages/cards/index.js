@@ -22,6 +22,7 @@ export default function PiMemoryApp() {
   const [showComplete, setShowComplete] = useState(false);
   const [stars, setStars] = useState(0);
   const [completedLevels, setCompletedLevels] = useState([]);
+  const [isClient, setIsClient] = useState(false);
 
   const correctSound = useRef(null);
   const wrongSound = useRef(null);
@@ -203,7 +204,7 @@ export default function PiMemoryApp() {
   };
 
   useEffect(() => {
-    initPi();
+    setIsClient(true);
 
     if (typeof window !== "undefined") {
       correctSound.current = new Audio("/sounds/correct.mp3");
@@ -211,7 +212,11 @@ export default function PiMemoryApp() {
       flipSound.current = new Audio("/sounds/flip.mp3");
       winSound.current = new Audio("/sounds/win.mp3");
     }
+
+    initPi();
   }, []);
+
+  if (!isClient) return null;
 
   return (
     <main className="app-container">
