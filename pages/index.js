@@ -12,6 +12,14 @@ export default function HomePage() {
   const [username, setUsername] = useState(null);
   const [error, setError] = useState(null);
   const [isPaid, setIsPaid] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const Loader = ({ message }) => (
+    <div style={{ textAlign: "center", marginTop: "5rem" }}>
+      <p style={{ fontSize: "1.5rem" }}>{message}</p>
+      <div className="spinner" />
+    </div>
+  );  
 
   // Authenticate the user using Pi SDK
   useEffect(() => {
@@ -48,6 +56,7 @@ export default function HomePage() {
             console.error("❌ Auth failed:", err);
             setError("Could not authenticate with Pi.");
           }
+          setLoading(false); 
         };
 
         authenticate();
@@ -140,33 +149,37 @@ export default function HomePage() {
 
   return (
     <main className="app-container">
+    {loading ? (
+      <Loader message="🔐 Logging you in..." />
+    ) : (
       <div className="menu-screen">
-        <h1 className="title">Welcome to PiMemory</h1>
-
-        {username && <p className="greeting">Hello, {username}!</p>}
-        {error && <p className="error">{error}</p>}
-
-        <h2 className="subtitle">Choose a game</h2>
-        <div className="game-selector">
-          <a
-            className={`menu-button ${!isPaid ? 'disabled' : ''}`}
-            href={isPaid ? "/cards" : "#"}
-            onClick={(e) => {
-              if (!isPaid) e.preventDefault();
-            }}
-          >
-            🎮 {isPaid ? "Play PiCards" : "Unlock with Pi first"}
-          </a>
-        </div>
-
-        {!isPaid && (
-          <div style={{ marginTop: "2rem" }}>
-            <button className="menu-button" onClick={handlePayment}>
-              💸 Pay with Pi to Unlock
-            </button>
-          </div>
-        )}
+      <h1 className="title">Welcome to PiMemory</h1>
+      
+      {username && <p className="greeting">Hello, {username}!</p>}
+      {error && <p className="error">{error}</p>}
+      
+      <h2 className="subtitle">Choose a game</h2>
+      <div className="game-selector">
+      <a
+      className={`menu-button ${!isPaid ? 'disabled' : ''}`}
+      href={isPaid ? "/cards" : "#"}
+      onClick={(e) => {
+        if (!isPaid) e.preventDefault();
+      }}
+      >
+      🎮 {isPaid ? "Play PiCards" : "Unlock with Pi first"}
+      </a>
       </div>
+
+      {!isPaid && (
+        <div style={{ marginTop: "2rem" }}>
+        <button className="menu-button" onClick={handlePayment}>
+        💸 Pay with Pi to Unlock
+        </button>
+        </div>
+      )}
+      </div>
+    )}
     </main>
-  );
+    );
 }
