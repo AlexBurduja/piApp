@@ -8,50 +8,6 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 
-async function saveGameData(username, level, finalScore, starsEarned, duration, updatedLevels) {
-  try {
-    await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
-      level,
-      score: finalScore,
-      stars: starsEarned,
-      time: duration,
-      completedAt: serverTimestamp(),
-    });
-
-    await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", username), {
-      username,
-      score: finalScore,
-      time: duration,
-      stars: starsEarned,
-      updatedAt: serverTimestamp(),
-    });
-
-    if (duration < 20) {
-      await setDoc(doc(db, "users", username, "badges", "speed_runner"), {
-        name: "Speed Runner",
-        earnedAt: serverTimestamp(),
-      });
-    }
-
-    if ([2, 4, 6, 8].every(lvl => updatedLevels.includes(lvl))) {
-      await setDoc(doc(db, "users", username, "badges", "level_master"), {
-        name: "Level Master",
-        earnedAt: serverTimestamp(),
-      });
-    }
-
-    if (finalScore >= 300) {
-      await setDoc(doc(db, "users", username, "badges", "scorer_300+"), {
-        name: "High Scorer",
-        earnedAt: serverTimestamp(),
-      });
-    }
-
-    console.log("✅ Data saved to Firebase!");
-  } catch (err) {
-    console.error("❌ Error saving to Firebase:", err);
-  }
-}
 
 export default function PiMemoryApp() {
   const [username, setUsername] = useState('');
@@ -174,9 +130,51 @@ export default function PiMemoryApp() {
           setShowComplete(true);
           setScreen('complete');
 
-          if (user) {
-            saveGameData(user, level, finalScore, starsEarned, duration, updated);
+          async function saveGameData(username, level, finalScore, starsEarned, duration, updatedLevels) {
+            try {
+              await setDoc(doc(db, "users", username, "levels", `level_${level}`), {
+                level,
+                score: finalScore,
+                stars: starsEarned,
+                time: duration,
+                completedAt: serverTimestamp(),
+              });
+          
+              await setDoc(doc(db, "leaderboard", `level_${level}`, "entries", username), {
+                username,
+                score: finalScore,
+                time: duration,
+                stars: starsEarned,
+                updatedAt: serverTimestamp(),
+              });
+          
+              if (duration < 20) {
+                await setDoc(doc(db, "users", username, "badges", "speed_runner"), {
+                  name: "Speed Runner",
+                  earnedAt: serverTimestamp(),
+                });
+              }
+          
+              if ([2, 4, 6, 8].every(lvl => updatedLevels.includes(lvl))) {
+                await setDoc(doc(db, "users", username, "badges", "level_master"), {
+                  name: "Level Master",
+                  earnedAt: serverTimestamp(),
+                });
+              }
+          
+              if (finalScore >= 300) {
+                await setDoc(doc(db, "users", username, "badges", "scorer_300+"), {
+                  name: "High Scorer",
+                  earnedAt: serverTimestamp(),
+                });
+              }
+          
+              console.log("✅ Data saved to Firebase!");
+            } catch (err) {
+              console.error("❌ Error saving to Firebase:", err);
+            }
           }
+
         }
       } else {
         wrongSound.current?.play();
