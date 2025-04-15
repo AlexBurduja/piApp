@@ -99,7 +99,7 @@ export default function PiMemoryApp() {
     setFlipped([]);
     setMatched([]);
     setScore(0);
-    setLevel(size);
+    setLevel(size/2);
     setStartTime(Date.now());
     setEndTime(null);
     setStars(0);
@@ -141,7 +141,6 @@ export default function PiMemoryApp() {
           setScore(finalScore);
           setEndTime(duration);
           setStars(starsEarned);
-          // setShowComplete(true);
           setScreen('complete');
 
           saveGameData(username, level, finalScore, starsEarned, duration, updated);
